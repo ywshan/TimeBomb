@@ -31,7 +31,7 @@
     <!-- 主體區域 -->
     <main class="w-full flex-grow grid grid-cols-1 lg:grid-cols-12 gap-3 overflow-hidden pb-1">
 
-        <!-- 登入 / 選擇房間畫面 (大廳未進入狀態) -->
+        <!-- 登入 / 選擇房間畫面 -->
         <div id="lobby-login-box" class="lg:col-span-12 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 flex flex-col items-center justify-center space-y-4 shadow-2xl">
             <h2 class="text-2xl font-bold text-amber-400">加入《驚爆倫敦》對局</h2>
             <p class="text-xs text-slate-400">請輸入你的暱稱與房號開始遊戲</p>
@@ -43,7 +43,7 @@
                 </div>
                 <div>
                     <label class="text-xs text-slate-300 block mb-1">房間號碼</label>
-                    <input type="text" id="input-room-code" placeholder="例如：8888" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+                    <input type="text" id="input-room-code" placeholder="例如：7788" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
                 </div>
                 <button onclick="joinRoomFromLobby()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl text-sm transition shadow-lg cursor-pointer">
                     🚀 進入房間
@@ -51,7 +51,7 @@
             </div>
         </div>
 
-        <!-- 左側：遊戲主戰場 / 等待室 (佔 8 欄) -->
+        <!-- 左側：遊戲主戰場 / 等待室 -->
         <section id="panel-game" class="hidden lg:col-span-8 bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between overflow-y-auto no-scrollbar relative shadow-xl">
             
             <!-- 狀態 A：等待大廳 -->
@@ -59,7 +59,7 @@
                 <div class="flex justify-between items-center border-b border-slate-800 pb-3">
                     <div>
                         <h2 class="font-bold text-lg text-slate-100">房間等待大廳</h2>
-                        <p class="text-xs text-slate-400">請等候其他玩家加入...</p>
+                        <p class="text-xs text-slate-400">請等候其他玩家加入，房長可隨時開始遊戲！</p>
                     </div>
                     <span id="player-count" class="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-1 rounded-full font-bold">0 人</span>
                 </div>
@@ -69,7 +69,6 @@
 
             <!-- 狀態 B：遊戲進行中戰場 -->
             <div id="game-screen" class="hidden flex-col h-full space-y-4">
-                <!-- 頂部資訊列 -->
                 <div class="grid grid-cols-3 gap-3 bg-slate-950/50 p-3 rounded-xl border border-slate-800/80 text-center">
                     <div>
                         <span class="text-[10px] text-slate-400 block">當前回合</span>
@@ -85,7 +84,6 @@
                     </div>
                 </div>
 
-                <!-- 玩家卡牌佈局板 -->
                 <div id="game-board-players" class="flex-grow overflow-y-auto space-y-3 pr-1"></div>
             </div>
 
@@ -99,7 +97,7 @@
             </div>
         </section>
 
-        <!-- 右側：控制台與聊天室 (佔 4 欄) -->
+        <!-- 右側：控制台與聊天室 -->
         <section id="panel-sidebar" class="hidden lg:col-span-4 flex flex-col space-y-3 overflow-hidden">
             
             <!-- 上方：控制面板 -->
@@ -110,13 +108,6 @@
                         遊戲控制台
                     </h3>
                     <span id="host-name-tag" class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300">室長：-</span>
-                </div>
-
-                <div class="space-y-2 text-xs">
-                    <label class="flex items-center space-x-2 text-slate-300 bg-slate-950/40 p-2 rounded-lg border border-slate-800">
-                        <input type="checkbox" checked disabled class="accent-amber-500">
-                        <span>標準 4 回合引線機制</span>
-                    </label>
                 </div>
 
                 <div class="space-y-2 pt-1">
@@ -131,9 +122,7 @@
 
             <!-- 下方：聊天室 -->
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col flex-grow shadow-xl overflow-hidden">
-                <h3 class="font-bold text-xs text-slate-300 mb-2 flex items-center justify-between">
-                    <span>💬 房間聊天室</span>
-                </h3>
+                <h3 class="font-bold text-xs text-slate-300 mb-2">💬 房間聊天室</h3>
                 
                 <div id="chat-messages" class="flex-grow bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 overflow-y-auto space-y-1.5 text-xs mb-2">
                     <div class="text-slate-500 text-[10px] text-center">歡迎來到驚爆倫敦！</div>
@@ -183,28 +172,45 @@
 
             const roomRef = db.ref('rooms/' + currentRoomCode);
             roomRef.once('value', snapshot => {
-                if (!snapshot.exists()) {
+                const roomData = snapshot.val();
+                if (!roomData) {
+                    // 如果房間不存在，自己成為房長
                     roomRef.set({
                         status: 'waiting',
                         host: myPlayerId,
                         players: { [myPlayerId]: { name: myName, isHost: true } }
                     });
                 } else {
+                    // 如果房長不見了或無效，指派自己為房長
+                    let hostId = roomData.host;
+                    if (!roomData.players || !roomData.players[hostId]) {
+                        hostId = myPlayerId;
+                    }
+                    
                     db.ref(`rooms/${currentRoomCode}/players/${myPlayerId}`).set({
                         name: myName,
-                        isHost: false
+                        isHost: (hostId === myPlayerId)
                     });
+
+                    if (!roomData.host) {
+                        db.ref(`rooms/${currentRoomCode}/host`).set(hostId);
+                    }
                 }
                 listenToRoom();
             });
         }
 
         function leaveRoom() {
+            if (currentRoomCode && myPlayerId) {
+                db.ref(`rooms/${currentRoomCode}/players/${myPlayerId}`).remove();
+            }
             location.reload();
         }
 
         function listenToRoom() {
-            db.ref('rooms/' + currentRoomCode).on('value', snapshot => {
+            const roomRef = db.ref('rooms/' + currentRoomCode);
+            
+            roomRef.on('value', snapshot => {
                 const data = snapshot.val();
                 if (!data) return;
 
@@ -232,16 +238,22 @@
             document.getElementById('waiting-room').classList.remove('hidden');
             document.getElementById('game-screen').classList.add('hidden');
 
-            const players = Object.values(data.players || {});
+            const playersObj = data.players || {};
+            const players = Object.entries(playersObj);
             document.getElementById('player-count').innerText = `${players.length} 人`;
 
-            const hostPlayer = Object.values(data.players || {}).find(p => p.isHost) || { name: '未知' };
-            document.getElementById('host-name-tag').innerText = `室長：${hostPlayer.name}`;
+            let hostName = '未知';
+            players.forEach(([pid, p]) => {
+                if (pid === data.host || p.isHost) {
+                    hostName = p.name;
+                }
+            });
+            document.getElementById('host-name-tag').innerText = `室長：${hostName}`;
 
-            document.getElementById('waiting-player-list').innerHTML = players.map(p => `
+            document.getElementById('waiting-player-list').innerHTML = players.map(([pid, p]) => `
                 <div class="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl text-xs flex justify-between items-center">
                     <span class="font-bold text-slate-200">👤 ${p.name}</span>
-                    ${p.isHost ? '<span class="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded text-[10px]">房長</span>' : '<span class="text-slate-500 text-[10px]">已準備</span>'}
+                    ${(pid === data.host || p.isHost) ? '<span class="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded text-[10px]">房長</span>' : '<span class="text-slate-500 text-[10px]">已準備</span>'}
                 </div>
             `).join('');
 
@@ -256,9 +268,11 @@
         function startGame() {
             db.ref('rooms/' + currentRoomCode).once('value', snapshot => {
                 const data = snapshot.val();
+                if (!data || !data.players) return;
+                
                 const playerIds = Object.keys(data.players);
                 const count = playerIds.length;
-
+                
                 if (count < 1) return alert('最少需要 1 人先可以開始！');
 
                 let roles = Array(count).fill('夏洛克陣營 (好人)');
@@ -307,12 +321,14 @@
             const container = document.getElementById('game-board-players');
             container.innerHTML = '';
 
-            Object.entries(data.players).forEach(([pid, player]) => {
+            Object.entries(data.players || {}).forEach(([pid, player]) => {
                 const isCurrentHolder = data.scissorHolder === myPlayerId;
                 const isSelf = pid === myPlayerId;
+                const cards = player.cards || [];
+                const revealed = player.revealed || [];
 
-                let cardsHtml = player.cards.map((card, idx) => {
-                    const isRevealed = player.revealed && player.revealed[idx];
+                let cardsHtml = cards.map((card, idx) => {
+                    const isRevealed = revealed[idx];
                     let btnStyle = 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700';
                     let label = '🎴';
 
@@ -348,7 +364,7 @@
         function cutCard(targetPid, cardIdx) {
             db.ref(`rooms/${currentRoomCode}/players/${targetPid}`).once('value', snapshot => {
                 const targetPlayer = snapshot.val();
-                if (targetPlayer.revealed && targetPlayer.revealed[cardIdx]) return;
+                if (!targetPlayer || (targetPlayer.revealed && targetPlayer.revealed[cardIdx])) return;
 
                 const cardType = targetPlayer.cards[cardIdx];
                 db.ref(`rooms/${currentRoomCode}/players/${targetPid}/revealed/${cardIdx}`).set(true);
