@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>驚爆倫敦 Time Bomb - 多人房間連線版</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            dark: '#0f172a',
+                            card: '#1e293b',
+                            accent: '#38bdf8',
+                            good: '#3b82f6',
+                            bad: '#ef4444',
+                            safe: '#10b981',
+                            defuse: '#06b6d4',
+                            bomb: '#f43f5e'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: #f3f4f6;
+            font-family: 'Noto Sans TC', sans-serif;
+            user-select: none;
+        }
+
+        .glow-red {
+            box-shadow: 0 0 20px rgba(244, 63, 94, 0.5);
+        }
+
+        .glow-blue {
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden text-slate-100">
+
+    <!-- Header / Navbar -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center text-white shadow-lg shadow-rose-500/20">
+                    <i class="fa-solid font-bold fa-bomb text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-wide bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                        驚爆倫敦 <span class="text-xs px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">MULTIPLAYER</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">房間連線 • 私密身分 • 即時剪線</p>
+                </div>
+            </div>
+
+            <!-- Connection / Room Info Header -->
+            <div id="roomHeaderInfo" class="hidden flex items-center gap-3">
+                <div class="bg-slate-800 border border-slate-700 px-3 py-1 rounded-xl text-xs flex items-center gap-2">
+                    <span class="text-slate-400">房間代碼:</span>
+                    <span id="headerRoomCode" class="font-mono font-extrabold text-amber-400 tracking-wider text-sm">----</span>
+                    <button onclick="copyRoomCode()" class="text-slate-400 hover:text-white transition ml-1" title="複製代碼">
+                        <i class="fa-solid fa-copy"></i>
+                    </button>
+                </div>
+                <div id="headerRoleBadge" class="hidden px-2.5 py-1 rounded-xl text-xs font-bold border">
+                    <!-- Dynamic Role -->
+                </div>
+                <button onclick="leaveRoom()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-400 border border-slate-700 transition">
+                    離開房間
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Views -->
+
+    <!-- 1. LOBBY / JOIN VIEW -->
+    <section id="lobbySection" class="max-w-md mx-auto w-full my-auto p-4 my-8">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative">
+            <div class="text-center mb-6">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 mx-auto flex items-center justify-center text-white text-3xl shadow-lg mb-3">
+                    <i class="fa-solid fa-satellite-dish"></i>
+                </div>
+                <h2 class="text-2xl font-black text-white">驚爆倫敦 多人對戰</h2>
+                <p class="text-xs text-slate-400 mt-1">建立房間或輸入代碼加入遊戲</p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">玩家名稱</label>
+                    <input type="text" id="inputPlayerName" placeholder="輸入你的暱稱..." class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <button onclick="createRoom()" class="py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-sm shadow-lg hover:brightness-110 transition">
+                        <i class="fa-solid fa-plus-circle mr-1"></i> 創建房間
+                    </button>
+                    <button onclick="showJoinInput()" class="py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-sm transition">
+                        <i class="fa-solid fa-right-to-bracket mr-1"></i> 加入房間
+                    </button>
+                </div>
+
+                <div id="joinInputBox" class="hidden pt-2 border-t border-slate-800 space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 mb-1">4位數房間代碼</label>
+                        <input type="text" id="inputRoomCode" placeholder="例如: 8888" maxlength="4" class="w-full uppercase font-mono tracking-widest text-center bg-slate-800 border border-slate-700 rounded-xl p-3 text-lg font-bold text-amber-400 focus:outline-none focus:border-amber-500">
+                    </div>
+                    <button onclick="joinRoom()" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition">
+                        確認加入
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. ROOM WAITING LOBBY (HOST & PLAYER) -->
+    <section id="waitingRoomSection" class="hidden max-w-xl mx-auto w-full p-4 my-auto">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+            <div class="flex justify-between items-center pb-4 border-b border-slate-800">
+                <div>
+                    <span class="text-xs text-slate-400">房間代碼</span>
+                    <h2 id="waitingRoomCode" class="text-3xl font-mono font-black text-amber-400 tracking-wider">----</h2>
+                </div>
+                <div class="text-right">
+                    <span id="waitingPlayerCount" class="text-sm font-bold text-slate-200">0 / 8 人</span>
+                    <span id="hostBadge" class="hidden block text-[10px] text-amber-400 font-semibold"><i class="fa-solid fa-crown"></i> 你是房主</span>
+                </div>
+            </div>
+
+            <!-- Joined Players List -->
+            <div class="my-6">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">已加入玩家 (需要 4-8 人)</h3>
+                <div id="waitingPlayersList" class="space-y-2">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Host Controls -->
+            <div id="hostControls" class="hidden border-t border-slate-800 pt-4 space-y-3">
+                <p class="text-xs text-slate-400">房主控制面板：人數滿足 4-8 人即可開始遊戲。</p>
+                <button onclick="hostStartGame()" id="startGameBtn" disabled class="w-full py-3.5 rounded-xl bg-slate-800 text-slate-500 font-bold text-sm transition cursor-not-allowed">
+                    人數不足 (最少4人)
+                </button>
+            </div>
+
+            <div id="playerWaitingNotice" class="text-center text-xs text-slate-400 py-3 italic">
+                等待房主開始遊戲...
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. GAME ARENA -->
+    <main id="gameArenaSection" class="hidden max-w-7xl mx-auto w-full p-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 my-2">
+        
+        <!-- Left Sidebar: Status, Controls & Private Hand View -->
+        <div class="lg:col-span-4 flex flex-col gap-5">
+            
+            <!-- Private Confidential Hand View Box -->
+            <div class="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-amber-500/30 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-lock"></i> 個人私密手牌 (只有你看得到)
+                    </span>
+                    <button onclick="togglePrivateVisibility()" class="text-xs px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 transition">
+                        <i id="eyeIcon" class="fa-solid fa-eye-slash"></i>
+                    </button>
+                </div>
+
+                <!-- Hidden Overlay toggle -->
+                <div id="privateContent" class="space-y-3">
+                    <!-- Role Banner -->
+                    <div id="myRoleBanner" class="p-3 rounded-xl bg-slate-800/80 border border-slate-700 flex justify-between items-center">
+                        <span class="text-xs text-slate-400">你的陣營身分:</span>
+                        <span id="myRoleText" class="font-bold text-sm text-slate-200">--</span>
+                    </div>
+
+                    <!-- Wire Counts Breakdown -->
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60">
+                            <span class="text-[10px] text-slate-400 block">安全引線</span>
+                            <span id="mySafeCount" class="text-lg font-bold text-emerald-400">0</span>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60">
+                            <span class="text-[10px] text-slate-400 block">解除引線</span>
+                            <span id="myDefuseCount" class="text-lg font-bold text-cyan-400">0</span>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60">
+                            <span class="text-[10px] text-slate-400 block">炸彈</span>
+                            <span id="myBombCount" class="text-lg font-bold text-rose-500">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="privateBlurredOverlay" class="hidden absolute inset-0 bg-slate-900/95 backdrop-blur flex items-center justify-center text-xs text-slate-400 cursor-pointer" onclick="togglePrivateVisibility()">
+                    <i class="fa-solid fa-eye mr-2 text-amber-400"></i> 點擊解鎖查看個人資訊
+                </div>
+            </div>
+
+            <!-- Game Status Board -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">當前局勢 STATUS</span>
+                    <span id="roundBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                        第 1 回合
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <!-- Defuses Found -->
+                    <div class="bg-slate-800/80 rounded-xl p-3 border border-slate-700/60">
+                        <div class="flex items-center justify-between text-slate-400 text-xs font-medium">
+                            <span>已剪開解除線</span>
+                            <i class="fa-solid fa-scissors text-cyan-400"></i>
+                        </div>
+                        <div class="mt-2 flex items-baseline gap-1">
+                            <span id="foundDefuseCount" class="text-2xl font-black text-cyan-400">0</span>
+                            <span class="text-xs text-slate-400">/ <span id="targetDefuseCount">4</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Bomb Status -->
+                    <div class="bg-slate-800/80 rounded-xl p-3 border border-slate-700/60">
+                        <div class="flex items-center justify-between text-slate-400 text-xs font-medium">
+                            <span>炸彈狀況</span>
+                            <i class="fa-solid fa-bomb text-rose-500"></i>
+                        </div>
+                        <div class="mt-2">
+                            <span id="bombStatusText" class="text-xs font-bold text-emerald-400">安全 (未引爆)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shears Indicator -->
+                <div class="bg-slate-950/60 rounded-xl p-3 border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                            <i class="fa-solid fa-scissors"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-400">剪刀持有人</p>
+                            <p id="shearsHolderName" class="text-xs font-bold text-amber-300">--</p>
+                        </div>
+                    </div>
+                    <!-- Host Only Next Round Button -->
+                    <button id="hostNextRoundBtn" onclick="hostNextRound()" class="hidden px-3 py-1.5 bg-amber-500 text-slate-950 text-xs font-bold rounded-lg hover:bg-amber-400 transition">
+                        房主切換下一回合
+                    </button>
+                </div>
+            </div>
+
+            <!-- Player Claim Declaration Section -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <div class="flex justify-between items-center mb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-bullhorn text-amber-400 text-sm"></i>
+                        <h3 class="text-xs font-bold text-slate-200 uppercase">全場喊牌/宣告統計</h3>
+                    </div>
+                    <button onclick="openClaimModal()" class="text-xs px-2.5 py-1 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition">
+                        宣告手牌
+                    </button>
+                </div>
+
+                <div class="space-y-1.5 mb-3 text-xs">
+                    <div class="flex justify-between text-slate-400">
+                        <span>全場宣稱解除線:</span>
+                        <span id="declaredDefusesTotal" class="font-bold text-amber-400">0條</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                        <span>實際剩餘解除線:</span>
+                        <span id="actualDefusesRemaining" class="font-bold text-cyan-400">4條</span>
+                    </div>
+                    <div id="discrepancyAlert" class="hidden text-[11px] p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>宣稱數大於實際數，必定有謊言！</span>
+                    </div>
+                </div>
+
+                <div id="claimsList" class="space-y-1.5 max-h-36 overflow-y-auto pr-1 custom-scrollbar text-xs">
+                    <!-- Dynamic claims list -->
+                </div>
+            </div>
+
+            <!-- Action Log -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <i class="fa-solid fa-list-ul"></i> 即時剪線日誌
+                </h3>
+                <div id="eventLog" class="flex-1 max-h-48 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar text-xs text-slate-300">
+                    <div class="p-2 text-slate-500 italic text-center">對局進行中...</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Main Board: All Player Hands -->
+        <div class="lg:col-span-8 flex flex-col gap-6">
+
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex justify-between items-center">
+                <span class="text-xs font-semibold text-slate-300">
+                    <i class="fa-solid fa-layer-group text-amber-400 mr-1"></i> 桌面剩餘蓋牌：<span id="cardsInPlayCount" class="text-amber-400 font-bold">20</span> 張
+                </span>
+                <span class="text-[11px] text-slate-400">
+                    持有剪刀者可點擊敵方蓋牌進行剪線
+                </span>
+            </div>
+
+            <!-- Dynamic Players Cards Container -->
+            <div id="playersContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Dynamically synchronized via Firebase -->
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Modals -->
+
+    <!-- Claim Modal -->
+    <div id="claimModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl relative">
+            <h3 class="text-base font-bold text-white mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-bullhorn text-amber-400"></i> 更新個人宣告 (喊牌)
+            </h3>
+            <p class="text-xs text-slate-400 mb-4">此資訊將公開同步給全場玩家看。</p>
+
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">宣稱手上的解除引線數</label>
+                    <input type="number" id="claimDefuseInput" min="0" max="8" value="0" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">宣稱手上是否有炸彈</label>
+                    <select id="claimBombSelect" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none">
+                        <option value="0">沒有炸彈 (0)</option>
+                        <option value="1">我有炸彈 (1)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="closeClaimModal()" class="flex-1 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs hover:bg-slate-700 transition">
+                    取消
+                </button>
+                <button onclick="submitClaim()" class="flex-1 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition">
+                    廣播宣告
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl text-center relative">
+            <div id="winnerIcon" class="w-20 h-20 rounded-3xl mx-auto flex items-center justify-center text-4xl shadow-2xl mb-4">
+            </div>
+            
+            <h2 id="winnerText" class="text-3xl font-black text-white mb-2">--</h2>
+            <p id="winnerSubtext" class="text-xs text-slate-400 mb-6">--</p>
+
+            <!-- Final Player Roles -->
+            <div class="bg-slate-950/60 rounded-2xl p-4 border border-slate-800 mb-6 max-h-48 overflow-y-auto custom-scrollbar">
+                <h4 class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider text-left">所有玩家真實身分揭曉</h4>
+                <div id="finalRolesList" class="space-y-2 text-xs">
+                </div>
+            </div>
+
+            <button id="hostRestartBtn" onclick="hostRestartGame()" class="hidden w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-sm shadow-xl hover:brightness-110 transition">
+                房主重開一局
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/60 py-3 text-center text-[11px] text-slate-500">
+        驚爆倫敦 Time Bomb • 雲端即時房間同步版
+    </footer>
+
+    <!-- Firebase Realtime Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Configuration Setup
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'time-bomb-app';
+        const firebaseConfig = JSON.parse(__firebase_config);
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Strict Setup Configurations (1 Bomb strictly across all options)
+        const SETUP_TABLE = {
+            4: { good: 3, bad: 2, safe: 15, defuse: 4, bomb: 1 },
+            5: { good: 3, bad: 2, safe: 19, defuse: 5, bomb: 1 },
+            6: { good: 4, bad: 2, safe: 23, defuse: 6, bomb: 1 },
+            7: { good: 5, bad: 2, safe: 27, defuse: 7, bomb: 1 },
+            8: { good: 5, bad: 3, safe: 31, defuse: 8, bomb: 1 }
+        };
+
+        // State variables
+        let myPlayerId = localStorage.getItem('tb_player_id') || 'p_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('tb_player_id', myPlayerId);
+
+        let myPlayerName = '';
+        let currentRoomCode = null;
+        let isHost = false;
+        let roomData = null;
+        let unsubscribeRoom = null;
+        let privateVisible = true;
+
+        // Initialize Auth
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Auth failed:", err);
+            }
+        }
+        initAuth();
+
+        // Helpers to construct Firestore Document References according to strict path rules
+        function getRoomDocRef(roomCode) {
+            return doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+        }
+
+        // Room UI Handlers
+        window.showJoinInput = function() {
+            document.getElementById('joinInputBox').classList.toggle('hidden');
+        };
+
+        window.createRoom = async function() {
+            const nameInput = document.getElementById('inputPlayerName').value.trim();
+            if (!nameInput) {
+                alert('請先輸入你的暱稱！');
+                return;
+            }
+            myPlayerName = nameInput;
+
+            // Generate 4-digit Room Code
+            const roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+            currentRoomCode = roomCode;
+            isHost = true;
+
+            const newRoom = {
+                roomCode: roomCode,
+                hostId: myPlayerId,
+                status: 'waiting', // waiting, playing, ended
+                players: [{
+                    id: myPlayerId,
+                    name: myPlayerName,
+                    role: null,
+                    hand: [],
+                    claim: { defuses: 0, bomb: 0 }
+                }],
+                currentRound: 1,
+                cutsLeft: 0,
+                foundDefuses: 0,
+                targetDefuses: 4,
+                shearsHolderId: 0,
+                logs: [`🏠 房間已創建 (代碼: ${roomCode})，等待玩家加入...`],
+                winningFaction: null,
+                winMessage: ''
+            };
+
+            await setDoc(getRoomDocRef(roomCode), newRoom);
+            listenToRoom(roomCode);
+        };
+
+        window.joinRoom = async function() {
+            const nameInput = document.getElementById('inputPlayerName').value.trim();
+            const codeInput = document.getElementById('inputRoomCode').value.trim().toUpperCase();
+
+            if (!nameInput || !codeInput) {
+                alert('請填寫暱稱與4位數房間代碼！');
+                return;
+            }
+            myPlayerName = nameInput;
+
+            const roomRef = getRoomDocRef(codeInput);
+            const snapshot = await getDoc(roomRef);
+
+            if (!snapshot.exists()) {
+                alert('找不到該房間，請檢查代碼！');
+                return;
+            }
+
+            const data = snapshot.data();
+            if (data.status !== 'waiting') {
+                alert('該房間遊戲已在進行中！');
+                return;
+            }
+
+            if (data.players.length >= 8) {
+                alert('房間人數已滿 (最多8人)！');
+                return;
+            }
+
+            // Check if player already in room
+            let updatedPlayers = [...data.players];
+            const existingIdx = updatedPlayers.findIndex(p => p.id === myPlayerId);
+
+            if (existingIdx >= 0) {
+                updatedPlayers[existingIdx].name = myPlayerName;
+            } else {
+                updatedPlayers.push({
+                    id: myPlayerId,
+                    name: myPlayerName,
+                    role: null,
+                    hand: [],
+                    claim: { defuses: 0, bomb: 0 }
+                });
+            }
+
+            const updatedLogs = [`👋 玩家 [${myPlayerName}] 加入了房間！`, ...data.logs];
+
+            await updateDoc(roomRef, {
+                players: updatedPlayers,
+                logs: updatedLogs
+            });
+
+            currentRoomCode = codeInput;
+            isHost = data.hostId === myPlayerId;
+            listenToRoom(codeInput);
+        };
+
+        window.leaveRoom = function() {
+            if (unsubscribeRoom) unsubscribeRoom();
+            currentRoomCode = null;
+            document.getElementById('lobbySection').classList.remove('hidden');
+            document.getElementById('waitingRoomSection').classList.add('hidden');
+            document.getElementById('gameArenaSection').classList.add('hidden');
+            document.getElementById('roomHeaderInfo').classList.add('hidden');
+        };
+
+        window.copyRoomCode = function() {
+            if (currentRoomCode) {
+                const tempInput = document.createElement("input");
+                tempInput.value = currentRoomCode;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                document.execCommand("copy");
+                document.body.removeChild(tempInput);
+                alert("已複製房間代碼: " + currentRoomCode);
+            }
+        };
+
+        // Live Room Synchronization Listener
+        function listenToRoom(roomCode) {
+            if (unsubscribeRoom) unsubscribeRoom();
+
+            const roomRef = getRoomDocRef(roomCode);
+            unsubscribeRoom = onSnapshot(roomRef, (docSnap) => {
+                if (!docSnap.exists()) return;
+                roomData = docSnap.data();
+                isHost = roomData.hostId === myPlayerId;
+
+                renderRoomState();
+            }, (err) => {
+                console.error("Snapshot error:", err);
+            });
+        }
+
+        // Render Room Logic according to status
+        function renderRoomState() {
+            if (!roomData) return;
+
+            // Update Room Header
+            document.getElementById('roomHeaderInfo').classList.remove('hidden');
+            document.getElementById('headerRoomCode').innerText = roomData.roomCode;
+
+            const lobbySec = document.getElementById('lobbySection');
+            const waitingSec = document.getElementById('waitingRoomSection');
+            const arenaSec = document.getElementById('gameArenaSection');
+
+            if (roomData.status === 'waiting') {
+                lobbySec.classList.add('hidden');
+                waitingSec.classList.remove('hidden');
+                arenaSec.classList.add('hidden');
+
+                // Render Waiting Room UI
+                document.getElementById('waitingRoomCode').innerText = roomData.roomCode;
+                document.getElementById('waitingPlayerCount').innerText = `${roomData.players.length} / 8 人`;
+                
+                const list = document.getElementById('waitingPlayersList');
+                list.innerHTML = '';
+                roomData.players.forEach((p, idx) => {
+                    const isP2Host = p.id === roomData.hostId;
+                    const item = document.createElement('div');
+                    item.className = "flex justify-between items-center p-3 bg-slate-800/80 rounded-xl border border-slate-700/80";
+                    item.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-slate-700 text-[10px] font-bold flex items-center justify-center text-slate-300">${idx+1}</span>
+                            <span class="font-bold text-slate-200 text-xs">${p.name} ${p.id === myPlayerId ? '(你)' : ''}</span>
+                        </div>
+                        ${isP2Host ? '<span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold"><i class="fa-solid fa-crown mr-1"></i>房主</span>' : ''}
+                    `;
+                    list.appendChild(item);
+                });
+
+                if (isHost) {
+                    document.getElementById('hostBadge').classList.remove('hidden');
+                    document.getElementById('hostControls').classList.remove('hidden');
+                    document.getElementById('playerWaitingNotice').classList.add('hidden');
+
+                    const startBtn = document.getElementById('startGameBtn');
+                    if (roomData.players.length >= 4 && roomData.players.length <= 8) {
+                        startBtn.disabled = false;
+                        startBtn.className = "w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-sm shadow-xl hover:brightness-110 transition cursor-pointer";
+                        startBtn.innerText = `開始遊戲 (${roomData.players.length}人對局)`;
+                    } else {
+                        startBtn.disabled = true;
+                        startBtn.className = "w-full py-3.5 rounded-xl bg-slate-800 text-slate-500 font-bold text-sm transition cursor-not-allowed";
+                        startBtn.innerText = `人數不足 (需要 4-8 人，目前 ${roomData.players.length} 人)`;
+                    }
+                } else {
+                    document.getElementById('hostBadge').classList.add('hidden');
+                    document.getElementById('hostControls').classList.add('hidden');
+                    document.getElementById('playerWaitingNotice').classList.remove('hidden');
+                }
+
+            } else if (roomData.status === 'playing' || roomData.status === 'ended') {
+                lobbySec.classList.add('hidden');
+                waitingSec.classList.add('hidden');
+                arenaSec.classList.remove('hidden');
+
+                renderArenaUI();
+            }
+        }
+
+        // Host Functions
+        window.hostStartGame = async function() {
+            if (!isHost || !roomData) return;
+            const pCount = roomData.players.length;
+            const spec = SETUP_TABLE[pCount];
+
+            // 1. Roles
+            let roles = [];
+            for (let i = 0; i < spec.good; i++) roles.push('good');
+            for (let i = 0; i < spec.bad; i++) roles.push('bad');
+            shuffleArray(roles);
+
+            // 2. Wires Deck
+            let wireDeck = [];
+            for (let i = 0; i < spec.safe; i++) wireDeck.push('safe');
+            for (let i = 0; i < spec.defuse; i++) wireDeck.push('defuse');
+            for (let i = 0; i < spec.bomb; i++) wireDeck.push('bomb');
+            shuffleArray(wireDeck);
+
+            // 3. Assign Hands & Roles to Players
+            let updatedPlayers = roomData.players.map((p, idx) => {
+                let hand = [];
+                for (let c = 0; c < 5; c++) {
+                    hand.push({
+                        id: `${idx}-${c}-${Math.random()}`,
+                        type: wireDeck.pop(),
+                        cut: false
+                    });
+                }
+                return {
+                    ...p,
+                    role: roles[idx],
+                    hand: hand,
+                    claim: { defuses: 0, bomb: 0 }
+                };
+            });
+
+            const randomShearsHolder = Math.floor(Math.random() * pCount);
+
+            await updateDoc(getRoomDocRef(currentRoomCode), {
+                status: 'playing',
+                players: updatedPlayers,
+                currentRound: 1,
+                cutsLeft: pCount,
+                foundDefuses: 0,
+                targetDefuses: spec.defuse,
+                shearsHolderId: randomShearsHolder,
+                winningFaction: null,
+                winMessage: '',
+                logs: [`🎮 房主啟動了遊戲！隨機指定 [${updatedPlayers[randomShearsHolder].name}] 為初始剪刀持有人。`]
+            });
+        };
+
+        // Render Active Playing Arena UI
+        function renderArenaUI() {
+            const spec = SETUP_TABLE[roomData.players.length];
+            const me = roomData.players.find(p => p.id === myPlayerId);
+
+            // 1. Render Private Secret Hand Stats
+            const myRoleBanner = document.getElementById('myRoleBanner');
+            const myRoleText = document.getElementById('myRoleText');
+            const headerRoleBadge = document.getElementById('headerRoleBadge');
+
+            headerRoleBadge.classList.remove('hidden');
+
+            if (me && me.role) {
+                if (me.role === 'good') {
+                    myRoleText.innerText = '大偵探 (好人陣營)';
+                    myRoleText.className = 'font-bold text-sm text-sky-400';
+                    headerRoleBadge.innerText = '好人陣營';
+                    headerRoleBadge.className = 'px-2.5 py-1 rounded-xl text-xs font-bold border border-sky-500/40 bg-sky-500/10 text-sky-400';
+                } else {
+                    myRoleText.innerText = '莫里亞蒂 (壞人陣營)';
+                    myRoleText.className = 'font-bold text-sm text-rose-400';
+                    headerRoleBadge.innerText = '壞人陣營';
+                    headerRoleBadge.className = 'px-2.5 py-1 rounded-xl text-xs font-bold border border-rose-500/40 bg-rose-500/10 text-rose-400';
+                }
+
+                let safe = 0, defuse = 0, bomb = 0;
+                me.hand.forEach(c => {
+                    if (!c.cut) {
+                        if (c.type === 'safe') safe++;
+                        if (c.type === 'defuse') defuse++;
+                        if (c.type === 'bomb') bomb++;
+                    }
+                });
+                document.getElementById('mySafeCount').innerText = safe;
+                document.getElementById('myDefuseCount').innerText = defuse;
+                document.getElementById('myBombCount').innerText = bomb;
+            }
+
+            // 2. Round & Counter Displays
+            document.getElementById('roundBadge').innerText = `第 ${roomData.currentRound} 回合 (剩 ${roomData.cutsLeft} 剪)`;
+            document.getElementById('foundDefuseCount').innerText = roomData.foundDefuses;
+            document.getElementById('targetDefuseCount').innerText = roomData.targetDefuses;
+
+            const holderObj = roomData.players[roomData.shearsHolderId];
+            document.getElementById('shearsHolderName').innerText = holderObj ? holderObj.name : '--';
+
+            // Host Next Round Button
+            const hostNextBtn = document.getElementById('hostNextRoundBtn');
+            if (isHost && roomData.cutsLeft === 0 && roomData.currentRound < 4 && roomData.status === 'playing') {
+                hostNextBtn.classList.remove('hidden');
+            } else {
+                hostNextBtn.classList.add('hidden');
+            }
+
+            // Cards in play count
+            let totalUncut = 0;
+            roomData.players.forEach(p => {
+                totalUncut += p.hand.filter(c => !c.cut).length;
+            });
+            document.getElementById('cardsInPlayCount').innerText = totalUncut;
+
+            // 3. Render Public Cards Arena
+            const container = document.getElementById('playersContainer');
+            container.innerHTML = '';
+
+            const isShearsHolderMe = roomData.shearsHolderId === roomData.players.findIndex(p => p.id === myPlayerId);
+
+            roomData.players.forEach((p, pIdx) => {
+                const isHolder = pIdx === roomData.shearsHolderId;
+                const isMe = p.id === myPlayerId;
+
+                const cardRow = document.createElement('div');
+                cardRow.className = `p-4 rounded-2xl border transition-all duration-300 ${
+                    isHolder ? 'bg-slate-900 border-amber-500/60 shadow-lg shadow-amber-500/10' : 'bg-slate-900/70 border-slate-800'
+                }`;
+
+                let cardsHtml = '';
+                p.hand.forEach((card, cIdx) => {
+                    if (card.cut) {
+                        // Cut & Revealed Card
+                        let cardBg = 'bg-slate-800 border-slate-700';
+                        let icon = '<i class="fa-solid fa-shield-halved text-emerald-400"></i>';
+                        let label = '安全';
+                        let textColor = 'text-emerald-400';
+
+                        if (card.type === 'defuse') {
+                            cardBg = 'bg-cyan-950/80 border-cyan-500/50';
+                            icon = '<i class="fa-solid fa-scissors text-cyan-400"></i>';
+                            label = '解除';
+                            textColor = 'text-cyan-300';
+                        } else if (card.type === 'bomb') {
+                            cardBg = 'bg-rose-950/80 border-rose-500/80 glow-red';
+                            icon = '<i class="fa-solid fa-bomb text-rose-500 animate-bounce"></i>';
+                            label = '炸彈!';
+                            textColor = 'text-rose-400 font-bold';
+                        }
+
+                        cardsHtml += `
+                            <div class="h-20 rounded-xl border ${cardBg} flex flex-col items-center justify-center p-1 text-center transition">
+                                <div class="text-lg mb-1">${icon}</div>
+                                <span class="text-[10px] ${textColor}">${label}</span>
+                            </div>
+                        `;
+                    } else {
+                        // Uncut Card (Facedown)
+                        // Can only cut if: game is playing, cuts left > 0, I am the shears holder, AND target player is not me
+                        const canCut = roomData.status === 'playing' && roomData.cutsLeft > 0 && isShearsHolderMe && !isMe;
+
+                        cardsHtml += `
+                            <div onclick="${canCut ? `cutCard(${pIdx}, ${cIdx})` : ''}" 
+                                 class="h-20 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 flex flex-col items-center justify-center p-1 text-center ${canCut ? 'cursor-pointer border-amber-500/50 hover:border-amber-400 hover:-translate-y-1' : 'opacity-80'} transition">
+                                <i class="fa-solid fa-shield text-slate-500 text-lg"></i>
+                                <span class="text-[10px] text-slate-400 mt-1">蓋牌</span>
+                            </div>
+                        `;
+                    }
+                });
+
+                cardRow.innerHTML = `
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-bold text-slate-200">${p.name} ${isMe ? '(你)' : ''}</span>
+                            ${isHolder ? '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold"><i class="fa-solid fa-scissors mr-1"></i>持剪刀</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-5 gap-2">
+                        ${cardsHtml}
+                    </div>
+                `;
+
+                container.appendChild(cardRow);
+            });
+
+            // 4. Claims Summary Table
+            renderClaimsSummary();
+
+            // 5. Action Logs
+            const logContainer = document.getElementById('eventLog');
+            logContainer.innerHTML = '';
+            (roomData.logs || []).forEach(msg => {
+                const item = document.createElement('div');
+                item.className = "p-2 rounded bg-slate-800/40 border border-slate-700/40 text-xs";
+                item.innerHTML = msg;
+                logContainer.appendChild(item);
+            });
+
+            // 6. Game Over Modal Check
+            if (roomData.status === 'ended') {
+                renderGameOverModal();
+            } else {
+                document.getElementById('gameOverModal').classList.add('hidden');
+            }
+        }
+
+        // Snip Card Realtime Action
+        window.cutCard = async function(targetPIdx, cardIdx) {
+            if (!roomData || roomData.status !== 'playing') return;
+
+            let updatedPlayers = JSON.parse(JSON.stringify(roomData.players));
+            const cutterName = updatedPlayers[roomData.shearsHolderId].name;
+            const targetPlayer = updatedPlayers[targetPIdx];
+            const card = targetPlayer.hand[cardIdx];
+
+            if (card.cut) return;
+
+            card.cut = true;
+            let cutsLeft = roomData.cutsLeft - 1;
+            let foundDefuses = roomData.foundDefuses;
+            let status = 'playing';
+            let winningFaction = null;
+            let winMessage = '';
+            let newLogs = [...roomData.logs];
+
+            if (card.type === 'defuse') {
+                foundDefuses++;
+                newLogs.unshift(`✂️ [${cutterName}] 剪開了 [${targetPlayer.name}] 的引線 ➔ 找到【解除引線】！(${foundDefuses}/${roomData.targetDefuses})`);
+            } else if (card.type === 'bomb') {
+                newLogs.unshift(`💥 [${cutterName}] 剪開了 [${targetPlayer.name}] 的引線 ➔ 觸發【炸彈引爆】！！`);
+                status = 'ended';
+                winningFaction = 'bad';
+                winMessage = '炸彈被剪開引爆！壞人陣營 (莫里亞蒂) 獲勝！';
+            } else {
+                newLogs.unshift(`✂️ [${cutterName}] 剪開了 [${targetPlayer.name}] 的引線 ➔【安全引線】`);
+            }
+
+            // Check Win condition for Good
+            if (foundDefuses >= roomData.targetDefuses) {
+                status = 'ended';
+                winningFaction = 'good';
+                winMessage = '所有解除引線已順利全數剪開！好人陣營 (大偵探) 獲勝！';
+            } else if (cutsLeft === 0 && roomData.currentRound === 4) {
+                status = 'ended';
+                winningFaction = 'bad';
+                winMessage = '4個回合已結束，好人未能在期限內解除炸彈！壞人陣營獲勝！';
+            }
+
+            await updateDoc(getRoomDocRef(currentRoomCode), {
+                players: updatedPlayers,
+                cutsLeft: cutsLeft,
+                foundDefuses: foundDefuses,
+                shearsHolderId: targetPIdx,
+                status: status,
+                winningFaction: winningFaction,
+                winMessage: winMessage,
+                logs: newLogs
+            });
+        };
+
+        // Host Next Round Handler
+        window.hostNextRound = async function() {
+            if (!isHost || !roomData) return;
+
+            const nextRoundNum = roomData.currentRound + 1;
+            const cardsToDeal = 6 - nextRoundNum; // R1:5, R2:4, R3:3, R4:2
+
+            // Collect uncut cards
+            let uncutPool = [];
+            roomData.players.forEach(p => {
+                p.hand.forEach(c => {
+                    if (!c.cut) uncutPool.push(c.type);
+                });
+            });
+            shuffleArray(uncutPool);
+
+            let updatedPlayers = JSON.parse(JSON.stringify(roomData.players));
+            updatedPlayers.forEach(p => {
+                p.hand = [];
+                for (let i = 0; i < cardsToDeal; i++) {
+                    p.hand.push({
+                        id: `${p.id}-${i}-${Math.random()}`,
+                        type: uncutPool.pop(),
+                        cut: false
+                    });
+                }
+            });
+
+            let newLogs = [`🔄 第 ${nextRoundNum} 回合開始！所有剩餘引線重新洗牌，每人分發 ${cardsToDeal} 張。`, ...roomData.logs];
+
+            await updateDoc(getRoomDocRef(currentRoomCode), {
+                players: updatedPlayers,
+                currentRound: nextRoundNum,
+                cutsLeft: roomData.players.length,
+                logs: newLogs
+            });
+        };
+
+        // Player Claim Broadcast
+        window.openClaimModal = function() {
+            document.getElementById('claimModal').classList.remove('hidden');
+        };
+
+        window.closeClaimModal = function() {
+            document.getElementById('claimModal').classList.add('hidden');
+        };
+
+        window.submitClaim = async function() {
+            if (!roomData) return;
+
+            const defuses = parseInt(document.getElementById('claimDefuseInput').value) || 0;
+            const bomb = parseInt(document.getElementById('claimBombSelect').value);
+
+            let updatedPlayers = JSON.parse(JSON.stringify(roomData.players));
+            const myIdx = updatedPlayers.findIndex(p => p.id === myPlayerId);
+
+            if (myIdx >= 0) {
+                updatedPlayers[myIdx].claim = { defuses, bomb };
+
+                let newLogs = [`📢 [${updatedPlayers[myIdx].name}] 廣播宣告：${defuses}條解除引線 ${bomb ? '| 有炸彈' : ''}`, ...roomData.logs];
+
+                await updateDoc(getRoomDocRef(currentRoomCode), {
+                    players: updatedPlayers,
+                    logs: newLogs
+                });
+            }
+
+            closeClaimModal();
+        };
+
+        function renderClaimsSummary() {
+            const listContainer = document.getElementById('claimsList');
+            listContainer.innerHTML = '';
+
+            let totalDeclaredDefuses = 0;
+
+            roomData.players.forEach((p) => {
+                const claim = p.claim || { defuses: 0, bomb: 0 };
+                totalDeclaredDefuses += claim.defuses;
+
+                const div = document.createElement('div');
+                div.className = "flex justify-between items-center bg-slate-800/60 p-1.5 rounded border border-slate-700/60";
+                div.innerHTML = `
+                    <span class="font-semibold text-slate-300">${p.name} ${p.id === myPlayerId ? '(你)' : ''}</span>
+                    <span class="text-slate-400">宣告: <b class="text-cyan-400">${claim.defuses}解除</b> ${claim.bomb ? '<b class="text-rose-400">| 炸彈</b>' : ''}</span>
+                `;
+                listContainer.appendChild(div);
+            });
+
+            document.getElementById('declaredDefusesTotal').innerText = `${totalDeclaredDefuses} 條`;
+            const remainingDefuses = roomData.targetDefuses - roomData.foundDefuses;
+            document.getElementById('actualDefusesRemaining').innerText = `${remainingDefuses} 條`;
+
+            const alertBox = document.getElementById('discrepancyAlert');
+            if (totalDeclaredDefuses > remainingDefuses) {
+                alertBox.classList.remove('hidden');
+            } else {
+                alertBox.classList.add('hidden');
+            }
+        }
+
+        // Toggle Secret View Visibility
+        window.togglePrivateVisibility = function() {
+            privateVisible = !privateVisible;
+            const content = document.getElementById('privateContent');
+            const overlay = document.getElementById('privateBlurredOverlay');
+            const eyeIcon = document.getElementById('eyeIcon');
+
+            if (privateVisible) {
+                content.classList.remove('blur-sm');
+                overlay.classList.add('hidden');
+                eyeIcon.className = 'fa-solid fa-eye-slash';
+            } else {
+                content.classList.add('blur-sm');
+                overlay.classList.remove('hidden');
+                eyeIcon.className = 'fa-solid fa-eye';
+            }
+        };
+
+        // Render Game Over Modal
+        function renderGameOverModal() {
+            const modal = document.getElementById('gameOverModal');
+            const iconContainer = document.getElementById('winnerIcon');
+            const winnerText = document.getElementById('winnerText');
+            const winnerSubtext = document.getElementById('winnerSubtext');
+
+            if (roomData.winningFaction === 'good') {
+                iconContainer.className = "w-20 h-20 rounded-3xl mx-auto flex items-center justify-center text-4xl shadow-2xl mb-4 bg-sky-500 text-white shadow-sky-500/30";
+                iconContainer.innerHTML = '<i class="fa-solid fa-user-shield"></i>';
+                winnerText.innerText = '好人陣營 獲勝！';
+                winnerText.className = 'text-3xl font-black text-sky-400 mb-2';
+            } else {
+                iconContainer.className = "w-20 h-20 rounded-3xl mx-auto flex items-center justify-center text-4xl shadow-2xl mb-4 bg-rose-500 text-white shadow-rose-500/30";
+                iconContainer.innerHTML = '<i class="fa-solid fa-skull"></i>';
+                winnerText.innerText = '壞人陣營 獲勝！';
+                winnerText.className = 'text-3xl font-black text-rose-500 mb-2';
+            }
+
+            winnerSubtext.innerText = roomData.winMessage;
+
+            // Final Player Roles
+            const rolesList = document.getElementById('finalRolesList');
+            rolesList.innerHTML = '';
+            roomData.players.forEach(p => {
+                const item = document.createElement('div');
+                item.className = "flex justify-between items-center p-2 rounded bg-slate-900 border border-slate-800";
+                item.innerHTML = `
+                    <span class="font-bold text-slate-200">${p.name} ${p.id === myPlayerId ? '(你)' : ''}</span>
+                    <span class="font-bold ${p.role === 'good' ? 'text-sky-400' : 'text-rose-400'}">
+                        ${p.role === 'good' ? '大偵探 (好人)' : '莫里亞蒂 (壞人)'}
+                    </span>
+                `;
+                rolesList.appendChild(item);
+            });
+
+            if (isHost) {
+                document.getElementById('hostRestartBtn').classList.remove('hidden');
+            } else {
+                document.getElementById('hostRestartBtn').classList.add('hidden');
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        window.hostRestartGame = async function() {
+            if (!isHost || !roomData) return;
+            await hostStartGame();
+        };
+
+        // Utility Shuffle Array
+        function shuffleArray(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        }
+    </script>
+</body>
+</html>
