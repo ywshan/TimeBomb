@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>驚爆倫敦 Time Bomb - 線上桌遊</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <style>
+        body { background-color: #0b0f19; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col p-3">
+
+    <!-- 頂部導航欄 -->
+    <header class="w-full flex justify-between items-center bg-slate-900/80 border border-slate-800 px-4 py-2.5 rounded-xl mb-3 shadow-md backdrop-blur">
+        <div class="flex items-center space-x-3">
+            <span class="text-xl">💣</span>
+            <h1 class="text-base font-bold text-amber-400 tracking-wide">驚爆倫敦 <span class="text-xs font-normal text-slate-400 ml-2">Time Bomb Web</span></h1>
+        </div>
+        <div class="flex items-center space-x-3 bg-slate-800/80 px-3 py-1 rounded-lg border border-slate-700/60 text-xs">
+            <span class="text-slate-400">玩家名：</span>
+            <span id="my-name-display" class="font-bold text-amber-300">未設定</span>
+        </div>
+    </header>
+
+    <!-- 主體區域 -->
+    <main class="w-full flex-grow grid grid-cols-1 lg:grid-cols-12 gap-3 overflow-hidden pb-1">
+
+        <!-- 登入 / 選擇房間畫面 (大廳未進入狀態) -->
+        <div id="lobby-login-box" class="lg:col-span-12 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 flex flex-col items-center justify-center space-y-4 shadow-2xl">
+            <h2 class="text-2xl font-bold text-amber-400">加入《驚爆倫敦》對局</h2>
+            <p class="text-xs text-slate-400">請輸入你的暱稱與房號開始遊戲</p>
+            
+            <div class="w-full max-w-xs space-y-3">
+                <div>
+                    <label class="text-xs text-slate-300 block mb-1">玩家暱稱</label>
+                    <input type="text" id="input-nickname" placeholder="例如：福爾摩斯" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-300 block mb-1">房間號碼</label>
+                    <input type="text" id="input-room-code" placeholder="例如：8888" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+                </div>
+                <button onclick="joinRoomFromLobby()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl text-sm transition shadow-lg cursor-pointer">
+                    🚀 進入房間
+                </button>
+            </div>
+        </div>
+
+        <!-- 左側：遊戲主戰場 / 等待室 (佔 8 欄) -->
+        <section id="panel-game" class="hidden lg:col-span-8 bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between overflow-y-auto no-scrollbar relative shadow-xl">
+            
+            <!-- 狀態 A：等待大廳 -->
+            <div id="waiting-room" class="space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <div>
+                        <h2 class="font-bold text-lg text-slate-100">房間等待大廳</h2>
+                        <p class="text-xs text-slate-400">請等候其他玩家加入...</p>
+                    </div>
+                    <span id="player-count" class="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-1 rounded-full font-bold">0 人</span>
+                </div>
+                
+                <div id="waiting-player-list" class="grid grid-cols-1 md:grid-cols-2 gap-2.5 py-2"></div>
+            </div>
+
+            <!-- 狀態 B：遊戲進行中戰場 -->
+            <div id="game-screen" class="hidden flex-col h-full space-y-4">
+                <!-- 頂部資訊列 -->
+                <div class="grid grid-cols-3 gap-3 bg-slate-950/50 p-3 rounded-xl border border-slate-800/80 text-center">
+                    <div>
+                        <span class="text-[10px] text-slate-400 block">當前回合</span>
+                        <span id="round-text" class="text-amber-400 font-bold text-sm">1 / 4</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 block">目標解除</span>
+                        <span id="target-defuse" class="text-green-400 font-bold text-sm">0</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 block">剪刀持有者</span>
+                        <span id="scissor-text" class="text-red-400 font-bold text-sm">-</span>
+                    </div>
+                </div>
+
+                <!-- 玩家卡牌佈局板 -->
+                <div id="game-board-players" class="flex-grow overflow-y-auto space-y-3 pr-1"></div>
+            </div>
+
+            <!-- 底部身分提示 -->
+            <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                <div class="flex items-center space-x-2">
+                    <span class="text-slate-400">你的身分：</span>
+                    <span id="my-role-text" class="font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">等待遊戲開始...</span>
+                </div>
+                <div id="room-code-display" class="text-[10px] text-slate-500">房號：-</div>
+            </div>
+        </section>
+
+        <!-- 右側：控制台與聊天室 (佔 4 欄) -->
+        <section id="panel-sidebar" class="hidden lg:col-span-4 flex flex-col space-y-3 overflow-hidden">
+            
+            <!-- 上方：控制面板 -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <h3 class="font-bold text-sm text-amber-400 flex items-center">
+                        <span class="w-2 h-2 rounded-full bg-amber-400 inline-block mr-2 animate-pulse"></span>
+                        遊戲控制台
+                    </h3>
+                    <span id="host-name-tag" class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300">室長：-</span>
+                </div>
+
+                <div class="space-y-2 text-xs">
+                    <label class="flex items-center space-x-2 text-slate-300 bg-slate-950/40 p-2 rounded-lg border border-slate-800">
+                        <input type="checkbox" checked disabled class="accent-amber-500">
+                        <span>標準 4 回合引線機制</span>
+                    </label>
+                </div>
+
+                <div class="space-y-2 pt-1">
+                    <button id="btn-start-game" onclick="startGame()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-lg hidden cursor-pointer">
+                        🚀 開始遊戲 (房長限定)
+                    </button>
+                    <button onclick="leaveRoom()" class="w-full bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 py-2 rounded-xl text-xs transition cursor-pointer">
+                        🚪 離開房間
+                    </button>
+                </div>
+            </div>
+
+            <!-- 下方：聊天室 -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col flex-grow shadow-xl overflow-hidden">
+                <h3 class="font-bold text-xs text-slate-300 mb-2 flex items-center justify-between">
+                    <span>💬 房間聊天室</span>
+                </h3>
+                
+                <div id="chat-messages" class="flex-grow bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 overflow-y-auto space-y-1.5 text-xs mb-2">
+                    <div class="text-slate-500 text-[10px] text-center">歡迎來到驚爆倫敦！</div>
+                </div>
+
+                <div class="flex space-x-2">
+                    <input type="text" id="chat-input" placeholder="輸入訊息..." onkeypress="handleChatKey(event)" class="flex-grow bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                    <button onclick="sendChat()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition cursor-pointer">
+                        發送
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <script>
+        const firebaseConfig = { databaseURL: "https://timebomb-demo-default-rtdb.asia-southeast1.firebasedatabase.app" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let myPlayerId = 'p_' + Math.floor(Math.random() * 100000);
+        let myName = '';
+        let currentRoomCode = '';
+
+        document.getElementById('input-nickname').value = '玩家_' + Math.floor(Math.random() * 100);
+        document.getElementById('input-room-code').value = '7788';
+
+        function joinRoomFromLobby() {
+            const nameInput = document.getElementById('input-nickname').value.trim();
+            const roomInput = document.getElementById('input-room-code').value.trim();
+
+            if (!nameInput || !roomInput) {
+                return alert('請填寫暱稱和房號！');
+            }
+
+            myName = nameInput;
+            currentRoomCode = roomInput.toUpperCase();
+
+            document.getElementById('my-name-display').innerText = myName;
+            document.getElementById('room-code-display').innerText = `房號：${currentRoomCode}`;
+
+            document.getElementById('lobby-login-box').classList.add('hidden');
+            document.getElementById('panel-game').classList.remove('hidden');
+            document.getElementById('panel-sidebar').classList.remove('hidden');
+
+            const roomRef = db.ref('rooms/' + currentRoomCode);
+            roomRef.once('value', snapshot => {
+                if (!snapshot.exists()) {
+                    roomRef.set({
+                        status: 'waiting',
+                        host: myPlayerId,
+                        players: { [myPlayerId]: { name: myName, isHost: true } }
+                    });
+                } else {
+                    db.ref(`rooms/${currentRoomCode}/players/${myPlayerId}`).set({
+                        name: myName,
+                        isHost: false
+                    });
+                }
+                listenToRoom();
+            });
+        }
+
+        function leaveRoom() {
+            location.reload();
+        }
+
+        function listenToRoom() {
+            db.ref('rooms/' + currentRoomCode).on('value', snapshot => {
+                const data = snapshot.val();
+                if (!data) return;
+
+                if (data.status === 'waiting') {
+                    renderWaitingRoom(data);
+                } else {
+                    renderGameScreen(data);
+                }
+            });
+
+            db.ref('rooms/' + currentRoomCode + '/chats').limitToLast(20).on('child_added', snapshot => {
+                const chat = snapshot.val();
+                const chatBox = document.getElementById('chat-messages');
+                chatBox.innerHTML += `<div class="break-words"><span class="text-amber-400 font-bold">${chat.name}:</span> <span class="text-slate-200">${chat.message}</span></div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            });
+        }
+
+        function getRequiredDefuse(count) {
+            const map = { 1: 1, 2: 2, 3: 2, 4: 3, 5: 4, 6: 4, 7: 5, 8: 5 };
+            return map[count] || 4;
+        }
+
+        function renderWaitingRoom(data) {
+            document.getElementById('waiting-room').classList.remove('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+
+            const players = Object.values(data.players || {});
+            document.getElementById('player-count').innerText = `${players.length} 人`;
+
+            const hostPlayer = Object.values(data.players || {}).find(p => p.isHost) || { name: '未知' };
+            document.getElementById('host-name-tag').innerText = `室長：${hostPlayer.name}`;
+
+            document.getElementById('waiting-player-list').innerHTML = players.map(p => `
+                <div class="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl text-xs flex justify-between items-center">
+                    <span class="font-bold text-slate-200">👤 ${p.name}</span>
+                    ${p.isHost ? '<span class="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded text-[10px]">房長</span>' : '<span class="text-slate-500 text-[10px]">已準備</span>'}
+                </div>
+            `).join('');
+
+            const startBtn = document.getElementById('btn-start-game');
+            if (data.host === myPlayerId) {
+                startBtn.classList.remove('hidden');
+            } else {
+                startBtn.classList.add('hidden');
+            }
+        }
+
+        function startGame() {
+            db.ref('rooms/' + currentRoomCode).once('value', snapshot => {
+                const data = snapshot.val();
+                const playerIds = Object.keys(data.players);
+                const count = playerIds.length;
+
+                if (count < 1) return alert('最少需要 1 人先可以開始！');
+
+                let roles = Array(count).fill('夏洛克陣營 (好人)');
+                if (count > 1) roles[0] = '莫里亞蒂陣營 (壞人)';
+                roles.sort(() => Math.random() - 0.5);
+
+                const defuseCount = getRequiredDefuse(count);
+                let deck = ['炸彈'];
+                for (let i = 0; i < defuseCount; i++) deck.push('解除');
+                while (deck.length < count * 5) deck.push('安全');
+                deck.sort(() => Math.random() - 0.5);
+
+                const updatedPlayers = {};
+                playerIds.forEach((pid, idx) => {
+                    updatedPlayers[pid] = {
+                        ...data.players[pid],
+                        role: roles[idx],
+                        cards: deck.splice(0, 5),
+                        revealed: [false, false, false, false, false]
+                    };
+                });
+
+                db.ref('rooms/' + currentRoomCode).update({
+                    status: 'playing',
+                    round: 1,
+                    requiredDefuse: defuseCount,
+                    scissorHolder: playerIds[0],
+                    players: updatedPlayers
+                });
+            });
+        }
+
+        function renderGameScreen(data) {
+            document.getElementById('waiting-room').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+
+            const me = data.players[myPlayerId];
+            if (me) {
+                document.getElementById('my-role-text').innerText = me.role;
+            }
+
+            document.getElementById('round-text').innerText = `${data.round} / 4`;
+            document.getElementById('target-defuse').innerText = data.requiredDefuse;
+            document.getElementById('scissor-text').innerText = data.players[data.scissorHolder]?.name || '-';
+
+            const container = document.getElementById('game-board-players');
+            container.innerHTML = '';
+
+            Object.entries(data.players).forEach(([pid, player]) => {
+                const isCurrentHolder = data.scissorHolder === myPlayerId;
+                const isSelf = pid === myPlayerId;
+
+                let cardsHtml = player.cards.map((card, idx) => {
+                    const isRevealed = player.revealed && player.revealed[idx];
+                    let btnStyle = 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700';
+                    let label = '🎴';
+
+                    if (isRevealed) {
+                        if (card === '炸彈') { btnStyle = 'bg-red-600 text-white border-red-500'; label = '💣'; }
+                        else if (card === '解除') { btnStyle = 'bg-emerald-600 text-white border-emerald-500'; label = '✂️'; }
+                        else { btnStyle = 'bg-slate-900 text-slate-500 border-slate-800'; label = '⚪'; }
+                    }
+
+                    return `
+                        <button onclick="cutCard('${pid}', ${idx})" 
+                            ${(isRevealed || !isCurrentHolder || isSelf) ? 'disabled' : ''}
+                            class="w-10 h-14 rounded-lg text-xs font-bold transition flex items-center justify-center cursor-pointer ${btnStyle} ${(!isRevealed && isCurrentHolder && !isSelf) ? 'ring-2 ring-amber-400 animate-pulse bg-amber-500/20' : ''}">
+                            ${label}
+                        </button>
+                    `;
+                }).join('');
+
+                container.innerHTML += `
+                    <div class="bg-slate-950/50 p-3 rounded-xl border ${data.scissorHolder === pid ? 'border-amber-500/60 bg-amber-500/5' : 'border-slate-800/80'} flex flex-col md:flex-row justify-between items-center gap-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-xs ${isSelf ? 'text-amber-300' : 'text-slate-200'}">${player.name} ${isSelf ? '(你)' : ''}</span>
+                            ${data.scissorHolder === pid ? '<span class="text-[10px] bg-amber-500 text-slate-950 font-bold px-1.5 py-0.5 rounded">✂️ 持剪刀</span>' : ''}
+                        </div>
+                        <div class="flex space-x-1.5">
+                            ${cardsHtml}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function cutCard(targetPid, cardIdx) {
+            db.ref(`rooms/${currentRoomCode}/players/${targetPid}`).once('value', snapshot => {
+                const targetPlayer = snapshot.val();
+                if (targetPlayer.revealed && targetPlayer.revealed[cardIdx]) return;
+
+                const cardType = targetPlayer.cards[cardIdx];
+                db.ref(`rooms/${currentRoomCode}/players/${targetPid}/revealed/${cardIdx}`).set(true);
+                db.ref(`rooms/${currentRoomCode}/scissorHolder`).set(targetPid);
+
+                if (cardType === '炸彈') {
+                    alert('💥 轟！炸彈被剪爆了！莫里亞蒂陣營（壞人）獲勝！');
+                }
+            });
+        }
+
+        function sendChat() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            db.ref(`rooms/${currentRoomCode}/chats`).push({
+                name: myName,
+                message: msg,
+                time: Date.now()
+            });
+            input.value = '';
+        }
+
+        function handleChatKey(e) {
+            if (e.key === 'Enter') sendChat();
+        }
+    </script>
+</body>
+</html>
